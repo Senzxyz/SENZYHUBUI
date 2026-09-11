@@ -924,7 +924,6 @@ function SENZYHUB:Window(Settings)
 						Parent = row,
 					}, { corner(3) })
 					
-					-- แถบเลื่อน (Fill) เป็นสีขาวปกติ (C.ink) ตามที่มึงขอ
 					local fill = new("Frame", {
 						BackgroundColor3 = C.ink,
 						BorderSizePixel = 0,
