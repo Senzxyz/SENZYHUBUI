@@ -35,7 +35,6 @@ local C = {
 	bad    = Color3.fromRGB(240, 120, 120),
 }
 
--- เปลี่ยนฟอนต์ให้ดูโมเดิร์นและอ่านง่ายขึ้น (ใช้ Montserrat แบบหนา)
 local FONT = "rbxasset://fonts/families/Montserrat.json"
 local W = {
 	reg  = Enum.FontWeight.Medium,
@@ -118,33 +117,6 @@ local function GetGui()
 	return g
 end
 
-local imageCache = {}
-local function resolveImage(img)
-	if type(img) ~= "string" or img == "" then return img end
-	if img:sub(1, 4) ~= "http" then return img end
-	if imageCache[img] then return imageCache[img] end
-	local getcustom = getcustomasset or getsynasset or (syn and syn.getcustomasset)
-	if not (getcustom and writefile and isfolder and makefolder and isfile) then return "" end
-	local ok = pcall(function()
-		if not isfolder(SENZYHUB.Folder) then makefolder(SENZYHUB.Folder) end
-		if not isfolder(SENZYHUB.Folder .. "/assets") then makefolder(SENZYHUB.Folder .. "/assets") end
-	end)
-	if not ok then return "" end
-	local ext = img:match("%.(%a%a%a?%a?)$") or "png"
-	local fname = SENZYHUB.Folder .. "/assets/" .. (img:gsub("[^%w]", "_")):sub(-48) .. "." .. ext
-	if not isfile(fname) then
-		local dok, data = pcall(function() return game:HttpGet(img) end)
-		if not dok or not data then return "" end
-		if not pcall(writefile, fname, data) then return "" end
-	end
-	local aok, asset = pcall(getcustom, fname)
-	if aok and asset then
-		imageCache[img] = asset
-		return asset
-	end
-	return ""
-end
-
 --  WINDOW
 function SENZYHUB:Window(Settings)
 	Settings = Settings or {}
@@ -155,7 +127,6 @@ function SENZYHUB:Window(Settings)
 	local tabs = {}
 	local currentTabInstance
 	local tabIndex = 0
-	local hasGlobalSetting = false
 
 	local notifications = new("Frame", {
 		Name = "Notifications",
@@ -258,19 +229,6 @@ function SENZYHUB:Window(Settings)
 		TextXAlignment = Enum.TextXAlignment.Left,
 		Position = UDim2.fromOffset(0, 24),
 		Size = UDim2.new(1, -20, 0, 14),
-		Parent = header,
-	})
-
-	local globeBtn = new("ImageButton", {
-		Name = "Settings",
-		BackgroundTransparency = 1,
-		Image = "rbxassetid://108952102602834",
-		ImageColor3 = C.ink,
-		ImageTransparency = 0.2,
-		AnchorPoint = Vector2.new(1, 0),
-		Position = UDim2.new(1, 0, 0, 2),
-		Size = UDim2.fromOffset(16, 16),
-		Visible = false,
 		Parent = header,
 	})
 
@@ -420,8 +378,44 @@ function SENZYHUB:Window(Settings)
 		b.MouseLeave:Connect(function() tween(b, T, { BackgroundColor3 = C.raise }):Play() end)
 		return b
 	end
+	
 	local minimize = ctlButton("-", 1)
 	local exit = ctlButton("x", 2)
+
+	-- Restore Button when minimized
+	local restoreBtn = new("TextButton", {
+		Name = "Restore",
+		BackgroundColor3 = C.panel,
+		AutoButtonColor = false,
+		BorderSizePixel = 0,
+		Text = "OPEN",
+		FontFace = getFont(W.bold),
+		TextColor3 = C.ink,
+		TextSize = 10,
+		Position = UDim2.fromOffset(24, 24),
+		Size = UDim2.fromOffset(50, 30),
+		Visible = false,
+		ZIndex = 25,
+		Parent = gui,
+	}, { corner(6), stroke(C.line2, 1, 0) })
+
+	local function setMinimized(min)
+		windowState = not min
+		base.Visible = not min
+		restoreBtn.Visible = min
+	end
+
+	minimize.MouseButton1Click:Connect(function()
+		setMinimized(true)
+	end)
+
+	restoreBtn.MouseButton1Click:Connect(function()
+		setMinimized(false)
+	end)
+
+	exit.MouseButton1Click:Connect(function()
+		gui:Destroy()
+	end)
 
 	local viewport = new("Frame", {
 		Name = "Viewport",
@@ -454,47 +448,6 @@ function SENZYHUB:Window(Settings)
 		end)
 	end
 
-	-- Global Settings Panel
-	local gsPanel = new("Frame", {
-		Name = "GlobalSettings",
-		Position = UDim2.fromOffset(SIDEBAR_W - 6, 70),
-		AutomaticSize = Enum.AutomaticSize.XY,
-		BackgroundColor3 = C.panel,
-		BorderSizePixel = 0,
-		ZIndex = 30,
-		Visible = false,
-		Parent = base,
-	}, { corner(8), stroke(C.line2, 1, 0), pad(10, 12, 10, 12), list(nil, 4) })
-	local gsScale = new("UIScale", { Scale = 0, Parent = gsPanel })
-	local gsOpen = false
-
-	globeBtn.MouseButton1Click:Connect(function()
-		gsOpen = not gsOpen
-		gsPanel.Visible = true
-		tween(gsScale, TQ, { Scale = gsOpen and 1 or 0 }):Play()
-		if not gsOpen then task.wait(0.2); if not gsOpen then gsPanel.Visible = false end end
-	end)
-
-	function Window:GlobalSetting(cfg)
-		hasGlobalSetting = true; globeBtn.Visible = true
-		local GS = {}
-		local row = new("TextButton", { BackgroundColor3 = C.panel, AutoButtonColor = false, BorderSizePixel = 0, Text = "", Size = UDim2.new(0, 190, 0, 30), Parent = gsPanel }, { pad(0, 10, 0, 10) })
-		local check = new("TextLabel", { BackgroundTransparency = 1, FontFace = getFont(W.bold), Text = "•", TextColor3 = C.ink, TextSize = 14, Size = UDim2.fromOffset(14, 30), Parent = row })
-		local nameLbl = new("TextLabel", { BackgroundTransparency = 1, FontFace = getFont(W.med), Text = cfg.Name, TextColor3 = C.label, TextSize = 12, Position = UDim2.new(0, 18, 0, 0), Size = UDim2.new(1, -18, 1, 0), Parent = row })
-
-		local state = cfg.Default
-		local function render()
-			check.TextColor3 = state and C.ok or C.dim2
-			nameLbl.TextColor3 = state and C.ink or C.label
-		end
-		render()
-		row.MouseButton1Click:Connect(function()
-			state = not state; render()
-			if cfg.Callback then task.spawn(cfg.Callback, state) end
-		end)
-		return GS
-	end
-
 	-- Tab Group & Tab System
 	function Window:TabGroup()
 		local Group = {}
@@ -518,19 +471,6 @@ function SENZYHUB:Window(Settings)
 			local swStroke = stroke(C.line2, 1, 1)
 			swStroke.Parent = switcher
 
-			local swIcon
-			if tset.Image then
-				swIcon = new("ImageLabel", {
-					BackgroundTransparency = 1,
-					Image = resolveImage(tset.Image),
-					ImageColor3 = C.label,
-					ImageTransparency = 0.3,
-					Size = UDim2.fromOffset(16, 16),
-					AnchorPoint = Vector2.new(0, 0.5),
-					Position = UDim2.new(0, 0, 0.5, 0),
-					Parent = switcher,
-				})
-			end
 			local swName = new("TextLabel", {
 				BackgroundTransparency = 1,
 				FontFace = getFont(W.med),
@@ -538,8 +478,7 @@ function SENZYHUB:Window(Settings)
 				TextColor3 = C.label,
 				TextSize = 12,
 				TextXAlignment = Enum.TextXAlignment.Left,
-				Position = UDim2.new(0, tset.Image and 24 or 0, 0, 0),
-				Size = UDim2.new(1, -(tset.Image and 24 or 0), 1, 0),
+				Size = UDim2.new(1, 0, 1, 0),
 				Parent = switcher,
 			})
 
@@ -612,7 +551,6 @@ function SENZYHUB:Window(Settings)
 					})
 				end
 
-				-- ฟีเจอร์: Button เพิ่มลูกเล่น Hover / Active
 				function Section:Button(cfg, Flag)
 					local B = { Settings = cfg }
 					local btn = new("TextButton", { BackgroundColor3 = C.raise, AutoButtonColor = false, BorderSizePixel = 0, Text = "", Size = UDim2.new(1, 0, 0, 34), Parent = card }, { corner(6), stroke(C.line, 1, 0) })
@@ -625,7 +563,6 @@ function SENZYHUB:Window(Settings)
 					return B
 				end
 
-				-- ฟีเจอร์: Toggle แบบพรีเมียม
 				function Section:Toggle(cfg, Flag)
 					local Tg = { Settings = cfg, Class = "Toggle" }
 					local row = baseRow(32)
@@ -652,7 +589,6 @@ function SENZYHUB:Window(Settings)
 					return Tg
 				end
 
-				-- ฟีเจอร์: Slider ปรับแต่งความลื่นไหล
 				function Section:Slider(cfg, Flag)
 					local S = { Settings = cfg, Class = "Slider" }
 					local row = baseRow(45)
@@ -660,7 +596,9 @@ function SENZYHUB:Window(Settings)
 					
 					local valBox = new("TextBox", { BackgroundColor3 = C.raise, BorderSizePixel = 0, FontFace = getFont(W.med), Text = "", TextColor3 = C.ink, TextSize = 11, AnchorPoint = Vector2.new(1, 0), Position = UDim2.fromScale(1, 0), Size = UDim2.fromOffset(60, 20), Parent = row }, { corner(4), stroke(C.line, 1, 0) })
 					local barBg = new("Frame", { BackgroundColor3 = C.raise, BorderSizePixel = 0, AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 0, 1, -4), Size = UDim2.new(1, 0, 0, 6), Parent = row }, { corner(3) })
-					local fill = new("Frame", { BackgroundColor3 = C.ok, BorderSizePixel = 0, Size = UDim2.fromScale(0, 1), Parent = barBg }, { corner(3) })
+					
+					-- เปลี่ยนสีแถบเลื่อน (Fill) ให้กลับมาเป็นสีขาวปกติ (C.ink) ตามที่มึงขอ
+					local fill = new("Frame", { BackgroundColor3 = C.ink, BorderSizePixel = 0, Size = UDim2.fromScale(0, 1), Parent = barBg }, { corner(3) })
 
 					local minv, maxv, finalValue = cfg.Minimum or 0, cfg.Maximum or 100, cfg.Default or 0
 					local function apply(v, silent)
@@ -686,19 +624,17 @@ function SENZYHUB:Window(Settings)
 					return S
 				end
 
-				-- ฟีเจอร์: Dropdown เมนูเลือกข้อมูล
 				function Section:Dropdown(cfg, Flag)
 					local D = { Settings = cfg, Class = "Dropdown" }
 					local wrap = new("Frame", { BackgroundColor3 = C.raise, BorderSizePixel = 0, ClipsDescendants = true, Size = UDim2.new(1, 0, 0, 34), Parent = card }, { corner(6), stroke(C.line, 1, 0) })
 					local headBtn = new("TextButton", { BackgroundTransparency = 1, AutoButtonColor = false, Text = "", Size = UDim2.new(1, 0, 0, 34), Parent = wrap }, { pad(0, 12, 0, 12) })
-					local headLbl = new("TextLabel", { BackgroundTransparency = 1, FontFace = getFont(W.med), Text = cfg.Name, TextColor3 = C.ink2, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, 0, 1, 0), Parent = headBtn })
+					new("TextLabel", { BackgroundTransparency = 1, FontFace = getFont(W.med), Text = cfg.Name, TextColor3 = C.ink2, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, 0, 1, 0), Parent = headBtn })
 					
 					function D:SetVisibility(s) wrap.Visible = s end
 					if Flag then SENZYHUB.Options[Flag] = D end
 					return D
 				end
 
-				-- ฟีเจอร์: Label / Paragraph สำหรับแสดงข้อความแนะนำ
 				function Section:Paragraph(cfg)
 					local box = new("Frame", { BackgroundTransparency = 1, AutomaticSize = Enum.AutomaticSize.Y, Size = UDim2.new(1, 0, 0, 0), Parent = card }, { list(nil, 4) })
 					new("TextLabel", { BackgroundTransparency = 1, FontFace = getFont(W.semi), Text = cfg.Header or "", TextColor3 = C.ink, TextSize = 12, TextWrapped = true, Size = UDim2.new(1, 0, 0, 14), Parent = box })
